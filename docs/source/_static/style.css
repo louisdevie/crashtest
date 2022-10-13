@@ -1,0 +1,7 @@
+.c.macro > dt > .n,
+.c.macro > dt > .p {
+	font-family: "JetBrains Mono", monospace;
+	font-size: 1em;
+	font-style: italic;
+	color: rgba(12, 74, 110, var(--tw-text-opacity));
+}

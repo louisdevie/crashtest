@@ -8,76 +8,80 @@
 #define CRASH_TEST_SUCCESS 0
 #define CRASH_TEST_FAILURE 1
 #define CRASH_TEST_SKIPPED 2
+#define CRASH_TEST_ABORTED 3
+
+#define CRASH_TEST_ERROR 0
+#define CRASH_TEST_WARNING 1
+#define CRASH_TEST_INFO 2
 
 /*================================== TYPES ===================================*/
 
-struct CrashTestFrame
-{
-    char *name;
-    struct CrashTestFrame *under;
-};
-
 struct CrashTestContext
 {
-    struct CrashTestFrame *top;
+    bool color;
+
     int depth;
 
     char *out_buffer;
+    size_t out_size;
+    size_t out_capacity;
 
     int test_count;
     int success_count;
     int skipped_count;
 };
 
-#define __CTX struct CrashTestContext *__ctx
+#define __CTX struct CrashTestContext *__crash_context
 
 /*================================ FUNCTIONS =================================*/
 
-void crash_display_test(__CTX, char *name, int result);
+void crash_init_test(__CTX);
+void crash_display_test(__CTX, char *name, uint8_t result);
 void crash_push_suite(__CTX, char *name);
 void crash_pop_suite(__CTX);
 void crash_display_summary(__CTX);
 
 #define __APARAMS __CTX, char *file, int line
-#define __ARET unsigned char
 
-__ARET crash_assert_true(__APARAMS, char *val_arg, bool val);
-__ARET crash_assert_false(__APARAMS, char *val_arg, bool val);
-__ARET crash_assert_equal(__APARAMS, char *exp_arg, char *val_arg, intmax_t exp,
-                          intmax_t val);
-__ARET crash_assert_notequal(__APARAMS, char *exp_arg, char *val_arg,
-                             intmax_t exp, intmax_t val);
-__ARET crash_assert_almost(__APARAMS, char *exp_arg, char *val_arg,
-                           long double exp, long double val);
-__ARET crash_assert_notalmost(__APARAMS, char *exp_arg, char *val_arg,
-                              long double exp, long double val);
-__ARET crash_assert_ptr_equal(__APARAMS, char *exp_arg, char *val_arg,
-                              void *exp, void *val);
-__ARET crash_assert_ptr_notequal(__APARAMS, char *exp_arg, char *val_arg,
-                                 void *exp, void *val);
-__ARET crash_assert_ptr_null(__APARAMS, char *val_arg, void *val);
-__ARET crash_assert_same(__APARAMS, char *exp_arg, char *val_arg, char *exp,
-                         char *val);
-__ARET crash_assert_diff(__APARAMS, char *exp_arg, char *val_arg, char *exp,
-                         char *val);
-__ARET crash_assert_memory(__APARAMS, char *exp_arg, char *val_arg, void *exp,
-                           void *val, size_t size);
+uint8_t crash_assert_true(__APARAMS, char *val_arg, bool val);
+uint8_t crash_assert_false(__APARAMS, char *val_arg, bool val);
+uint8_t crash_assert_equal(__APARAMS, char *exp_arg, char *val_arg,
+                           uint8_t size, intmax_t exp, intmax_t val);
+uint8_t crash_assert_notequal(__APARAMS, char *exp_arg, char *val_arg,
+                              uint8_t size, intmax_t exp, intmax_t val);
+uint8_t crash_assert_almost(__APARAMS, char *exp_arg, char *val_arg,
+                            long double exp, long double val,
+                            const unsigned int prec);
+uint8_t crash_assert_notalmost(__APARAMS, char *exp_arg, char *val_arg,
+                               long double exp, long double val,
+                               const unsigned int prec);
+uint8_t crash_assert_ptr_equal(__APARAMS, char *exp_arg, char *val_arg,
+                               void *exp, void *val);
+uint8_t crash_assert_ptr_notequal(__APARAMS, char *exp_arg, char *val_arg,
+                                  void *exp, void *val);
+uint8_t crash_assert_ptr_null(__APARAMS, char *val_arg, void *val);
+uint8_t crash_assert_same(__APARAMS, char *exp_arg, char *val_arg, char *exp,
+                          char *val);
+uint8_t crash_assert_diff(__APARAMS, char *exp_arg, char *val_arg, char *exp,
+                          char *val);
+uint8_t crash_assert_memory(__APARAMS, char *exp_arg, char *val_arg, void *exp,
+                            void *val, size_t size);
 
-__ARET crash_skip_test(__APARAMS);
-__ARET crash_user_error(__APARAMS, const char *format, ...);
-void crash_user_message(__APARAMS, int level, const char *format, ...);
+uint8_t crash_skip_test(__APARAMS, const char *fmt, ...);
+void crash_user_message(__APARAMS, int level, const char *fmt, ...);
 
 /*============================= TEST DEFINITIONS =============================*/
 
 #define define_test(name)                                                      \
-    void __test_##name##_impl(__CTX, int *__res);                              \
+    void __test_##name##_impl(__CTX, uint8_t *__crash_result);                 \
     void __test_##name(__CTX)                                                  \
     {                                                                          \
-        int result;                                                            \
+        crash_init_test(__ctx);                                                \
+        uint8_t result;                                                        \
         __test_##name##_impl(__ctx, &result);                                  \
         crash_display_test(__ctx, #name, result);                              \
     }                                                                          \
-    void __test_##name##_impl(__CTX, int *__res)
+    void __test_##name##_impl(__CTX, uint8_t *__crash_result)
 
 #define test(name) __test_##name(__ctx)
 
@@ -107,13 +111,19 @@ void crash_user_message(__APARAMS, int level, const char *format, ...);
 /*============================= ASSERTION MACROS =============================*/
 
 #define __AARGS __ctx, __FILE__, __LINE__
-#define __ASSERT_BEFORE __res =
+
+#define __ASSERT_BEFORE                                                        \
+    do                                                                         \
+    {                                                                          \
+    __crash_result =
 #define __ASSERT_AFTER                                                         \
     ;                                                                          \
-    if (__res)                                                                 \
+    if (__crash_result)                                                        \
     {                                                                          \
         return;                                                                \
-    }
+    }                                                                          \
+    }                                                                          \
+    while (0)
 
 #define __assert_ok(value)                                                     \
     __ASSERT_BEFORE                                                            \
@@ -200,11 +210,30 @@ void crash_user_message(__APARAMS, int level, const char *format, ...);
 #define mem(...) __assert_mem(__VA_ARGS__)
 #endif
 
-#define skip() __ASSERT_BEFORE crash_skip_test(__AARGS) __ASSERT_AFTER
+#define skip(...)                                                              \
+    do                                                                         \
+    {                                                                          \
+        crash_skip_test(__AARGS, "" __VA_ARGS__);                              \
+        __crash_result = CRASH_TEST_SKIPPED;                                   \
+        return;                                                                \
+    } while (0)
 
 #define err(...)                                                               \
-    __ASSERT_BEFORE crash_user_error(__AARGS, __VA_ARGS__) __ASSERT_AFTER
+    do                                                                         \
+    {                                                                          \
+        crash_user_message(__AARGS, CRASH_TEST_ERROR, __VA_ARGS__);            \
+        __crash_result CRASH_TEST_FAILURE;                                     \
+        return;                                                                \
+    } while (0)
 
-#define warn(...) crash_user_message(__AARGS, 1, __VA_ARGS__)
+#define warn(...) crash_user_message(__AARGS, CRASH_TEST_WARNING, __VA_ARGS__)
 
-#define info(...) crash_user_message(__AARGS, 2, __VA_ARGS__)
+#define info(...) crash_user_message(__AARGS, CRASH_TEST_INFO, __VA_ARGS__)
+
+#define panic(...)                                                             \
+    do                                                                         \
+    {                                                                          \
+        crash_user_message(__AARGS, CRASH_TEST_ERROR, __VA_ARGS__);            \
+        __crash_result = CRASH_TEST_ABORTED;                                   \
+        return                                                                 \
+    } while (0)

@@ -12,6 +12,15 @@
 		{
 			"name": "Headers",
 			"path": "./include",
+		},
+		{
+			"name": "Unit tests",
+			"path": "./tests",
+		},
+		{
+			"name": "Documentation",
+			"path": "./docs",
+			"folder_exclude_patterns": ["build"],
 		}
 	]
 }
