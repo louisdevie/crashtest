@@ -4,6 +4,4 @@ C unit testing framework
 
 ---
 
-*Status: beta*
-
-Documentation can be found in [HOWTO](HOWTO.md)
+Documentation can be found [here](https://crashtest.readthedocs.io/en/latest/index.html).
