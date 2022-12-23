@@ -2,7 +2,7 @@ Assertion macros
 ================
 
 .. warning::
-   All the macros below can only be used inside a :ref:` ``define_tests`` <tests>` declaration.
+   All the macros below can only be used inside a :ref:```define_tests`` <tests>` declaration.
 
 .. note::
    All the macros below can be prefixed with ``assert_`` by defining
